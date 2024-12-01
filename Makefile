@@ -74,7 +74,7 @@ nginx-log:
 	ssh isu11q-1 "sudo tail -f /var/log/nginx/access.log"
 
 ALPSORT=sum
-ALPM=/isu/[0-9a-f-]{36},/?.+,/api/condition/[0-9a-f-]{36}
+ALPM=^/api/condition/[0-9a-f-]{36},^/api/isu/[0-9a-f-]{36}/graph,^/api/isu/[0-9a-f-]{36},^/isu/[0-9a-f-]{36}/graph,^/isu/[0-9a-f-]{36},^/\?.*
 OUTFORMAT=count,method,uri,min,max,sum,avg,p99
 
 alp:
