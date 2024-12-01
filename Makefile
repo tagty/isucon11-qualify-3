@@ -5,25 +5,20 @@ deploy:
 		git fetch; \
 		git checkout $(BRANCH); \
 		git reset --hard origin/$(BRANCH)"
-	scp -r ./webapp/go isu11q-2:/home/isucon/webapp/
 
 build:
 	ssh isu11q-1 " \
 		cd /home/isucon/webapp/go; \
-		/home/isucon/local/golang/bin/go build -o isupipe"
-	ssh isu11q-2 " \
-		cd /home/isucon/webapp/go; \
-		/home/isucon/local/golang/bin/go build -o isupipe"
+		/home/isucon/local/go/bin/go build -o isucondition"
 
 go-deploy:
-	scp ./webapp/go/isupipe isu11q-1:/home/isucon/webapp/go/
+	scp ./webapp/go/isucondition isu11q-1:/home/isucon/webapp/go/
 
 go-deploy-dir:
 	scp -r ./webapp/go isu11q-1:/home/isucon/webapp/
 
 restart:
-	ssh isu11q-1 "sudo systemctl restart isupipe-go.service"
-	ssh isu11q-2 "sudo systemctl restart isupipe-go.service"
+	ssh isu11q-1 "sudo systemctl restart isucondition.go.service"
 
 mysql-deploy:
 	ssh isu11q-1 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
@@ -87,12 +82,12 @@ alp:
 
 .PHONY: pprof
 pprof:
-	ssh isu11q-2 " \
-		/home/isucon/local/golang/bin/go tool pprof -seconds=120 /home/isucon/webapp/go/isupipe http://localhost:6060/debug/pprof/profile"
+	ssh isu11q-1 " \
+		/home/isucon/local/go/bin/go tool pprof -seconds=120 /home/isucon/webapp/go/isucondition http://localhost:6060/debug/pprof/profile"
 
 pprof-show:
-	$(eval latest := $(shell ssh isu11q-2 "ls -rt ~/pprof/ | tail -n 1"))
-	scp isu11q-2:~/pprof/$(latest) ./pprof
+	$(eval latest := $(shell ssh isu11q-1 "ls -rt ~/pprof/ | tail -n 1"))
+	scp isu11q-1:~/pprof/$(latest) ./pprof
 	go tool pprof -http=":1080" ./pprof/$(latest)
 
 pprof-kill:
