@@ -5,9 +5,13 @@ deploy:
 		git fetch; \
 		git checkout $(BRANCH); \
 		git reset --hard origin/$(BRANCH)"
+	scp -r ./webapp/go isu11q-3:/home/isucon/webapp/
 
 build:
 	ssh isu11q-1 " \
+		cd /home/isucon/webapp/go; \
+		/home/isucon/local/go/bin/go build -o isucondition"
+	ssh isu11q-3 " \
 		cd /home/isucon/webapp/go; \
 		/home/isucon/local/go/bin/go build -o isucondition"
 
@@ -19,15 +23,16 @@ go-deploy-dir:
 
 restart:
 	ssh isu11q-1 "sudo systemctl restart isucondition.go.service"
+	ssh isu11q-3 "sudo systemctl restart isucondition.go.service"
 
 mysql-deploy:
-	ssh isu11q-1 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
+	ssh isu11q-2 "sudo dd of=/etc/mysql/mariadb.conf.d/50-server.cnf" < ./etc/mysql/mariadb.conf.d/50-server.cnf
 
 mysql-rotate:
-	ssh isu11q-1 "sudo rm -f /var/log/mysql/mariadb-slow.log"
+	ssh isu11q-2 "sudo rm -f /var/log/mysql/mariadb-slow.log"
 
 mysql-restart:
-	ssh isu11q-1 "sudo systemctl restart mysql.service"
+	ssh isu11q-2 "sudo systemctl restart mysql.service"
 
 nginx-deploy:
 	ssh isu11q-1 "sudo dd of=/etc/nginx/nginx.conf" < ./etc/nginx/nginx.conf
@@ -56,7 +61,7 @@ dnsdist-restart:
 
 env-deploy:
 	ssh isu11q-1 "sudo dd of=/home/isucon/env.sh" < ./env.sh
-	ssh isu11q-2 "sudo dd of=/home/isucon/env.sh" < ./env.sh
+	ssh isu11q-3 "sudo dd of=/home/isucon/env.sh" < ./env.sh
 
 .PHONY: bench
 bench:
@@ -64,11 +69,14 @@ bench:
 		cd /home/isucon/bench; \
 		./bench -all-addresses 127.0.0.11 -target 127.0.0.11:443 -tls -jia-service-url http://127.0.0.1:4999"
 
-journalctl:
+journalctl-1:
 	ssh isu11q-1 "sudo journalctl -xef"
 
+journalctl-3:
+	ssh isu11q-3 "sudo journalctl -xef"
+
 pt-query-digest:
-	ssh isu11q-1 "sudo pt-query-digest --limit 10 /var/log/mysql/mariadb-slow.log"
+	ssh isu11q-2 "sudo pt-query-digest --limit 10 /var/log/mysql/mariadb-slow.log"
 
 nginx-log:
 	ssh isu11q-1 "sudo tail -f /var/log/nginx/access.log"
