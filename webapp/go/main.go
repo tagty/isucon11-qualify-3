@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	_ "net/http/pprof"
@@ -1088,6 +1089,12 @@ func calculateConditionLevel(condition string) (string, error) {
 // GET /api/trend
 // ISUの性格毎の最新のコンディション情報
 func getTrend(c echo.Context) error {
+	cache := Cache{expiration: 5 * time.Second}
+	cachedTrend, ok := cache.Get("trend")
+	if ok {
+		return c.JSON(http.StatusOK, cachedTrend)
+	}
+
 	characterList := []Isu{}
 	err := db.Select(&characterList, "SELECT `character` FROM `isu` GROUP BY `character`")
 	if err != nil {
@@ -1163,7 +1170,28 @@ func getTrend(c echo.Context) error {
 			})
 	}
 
+	cache.Set("trend", res)
+
 	return c.JSON(http.StatusOK, res)
+}
+
+type Cache struct {
+	data       sync.Map
+	expiration time.Duration
+}
+
+// 保存
+func (c *Cache) Set(key string, value interface{}) {
+	c.data.Store(key, value)
+	go func() {
+		time.Sleep(c.expiration)
+		c.data.Delete(key) // 指定時間後に削除
+	}()
+}
+
+// 取得
+func (c *Cache) Get(key string) (interface{}, bool) {
+	return c.data.Load(key)
 }
 
 // POST /api/condition/:jia_isu_uuid
