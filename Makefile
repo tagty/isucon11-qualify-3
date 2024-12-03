@@ -88,14 +88,22 @@ OUTFORMAT=count,method,uri,min,max,sum,avg,p99
 alp:
 	ssh isu11q-1 "sudo alp ltsv --file=/var/log/nginx/access.log --nosave-pos --pos /tmp/alp.pos --sort $(ALPSORT) --reverse -o $(OUTFORMAT) -m $(ALPM) -q"
 
-.PHONY: pprof
-pprof:
+pprof-1:
 	ssh isu11q-1 " \
 		/home/isucon/local/go/bin/go tool pprof -seconds=120 /home/isucon/webapp/go/isucondition http://localhost:6060/debug/pprof/profile"
 
-pprof-show:
+pprof-show-1:
 	$(eval latest := $(shell ssh isu11q-1 "ls -rt ~/pprof/ | tail -n 1"))
 	scp isu11q-1:~/pprof/$(latest) ./pprof
+	go tool pprof -http=":1080" ./pprof/$(latest)
+
+pprof-3:
+	ssh isu11q-3 " \
+		/home/isucon/local/go/bin/go tool pprof -seconds=120 /home/isucon/webapp/go/isucondition http://localhost:6060/debug/pprof/profile"
+
+pprof-show-3:
+	$(eval latest := $(shell ssh isu11q-3 "ls -rt ~/pprof/ | tail -n 1"))
+	scp isu11q-3:~/pprof/$(latest) ./pprof
 	go tool pprof -http=":1080" ./pprof/$(latest)
 
 pprof-kill:
