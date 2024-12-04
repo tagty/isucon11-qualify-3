@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"database/sql"
 	"encoding/json"
@@ -26,6 +27,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -1085,11 +1087,29 @@ func calculateConditionLevel(condition string) (string, error) {
 	return conditionLevel, nil
 }
 
+var ctx = context.Background()
+
 // GET /api/trend
 // ISUの性格毎の最新のコンディション情報
 func getTrend(c echo.Context) error {
+	rds := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+	val, err := rds.Get(ctx, "trend").Result()
+	if val != "" && err == nil {
+		var res []TrendResponse
+		err = json.Unmarshal([]byte(val), &res)
+		if err != nil {
+			c.Logger().Errorf("json unmarshal error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		return c.JSON(http.StatusOK, res)
+	}
+
 	characterList := []Isu{}
-	err := db.Select(&characterList, "SELECT `character` FROM `isu` GROUP BY `character`")
+	err = db.Select(&characterList, "SELECT `character` FROM `isu` GROUP BY `character`")
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -1161,6 +1181,17 @@ func getTrend(c echo.Context) error {
 				Warning:   characterWarningIsuConditions,
 				Critical:  characterCriticalIsuConditions,
 			})
+	}
+
+	resJSON, err := json.Marshal(res)
+	if err != nil {
+		c.Logger().Errorf("json marshal error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	err = rds.Set(ctx, "trend", resJSON, 0).Err()
+	if err != nil {
+		c.Logger().Errorf("redis set error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	return c.JSON(http.StatusOK, res)
