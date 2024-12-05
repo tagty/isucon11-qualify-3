@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"database/sql"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 
 	_ "net/http/pprof"
 
+	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
@@ -1088,8 +1090,22 @@ func calculateConditionLevel(condition string) (string, error) {
 // GET /api/trend
 // ISUの性格毎の最新のコンディション情報
 func getTrend(c echo.Context) error {
+	mc := memcache.New("127.0.0.1:11211")
+	defer mc.Close()
+
+	item, err := mc.Get("trend")
+	if err == nil {
+		var res []TrendResponse
+		err = gob.NewDecoder(bytes.NewReader(item.Value)).Decode(&res)
+		if err != nil {
+			c.Logger().Errorf("gob decode error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		return c.JSON(http.StatusOK, res)
+	}
+
 	characterList := []Isu{}
-	err := db.Select(&characterList, "SELECT `character` FROM `isu` GROUP BY `character`")
+	err = db.Select(&characterList, "SELECT `character` FROM `isu` GROUP BY `character`")
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -1163,7 +1179,28 @@ func getTrend(c echo.Context) error {
 			})
 	}
 
+	encodedRes, err := gobEncode(res)
+	if err != nil {
+		c.Logger().Errorf("gob encode error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	err = mc.Set(&memcache.Item{Key: "trend", Value: encodedRes, Expiration: 5})
+	if err != nil {
+		c.Logger().Errorf("memcache set error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	return c.JSON(http.StatusOK, res)
+}
+
+func gobEncode(data interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(data)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // POST /api/condition/:jia_isu_uuid

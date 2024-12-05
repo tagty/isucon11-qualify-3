@@ -47,17 +47,8 @@ nginx-reload:
 nginx-restart:
 	ssh isu11q-1 "sudo systemctl restart nginx.service"
 
-powerdns-deploy:
-	ssh isu11q-1 "sudo dd of=/etc/powerdns/pdns.conf" < ./etc/powerdns/pdns.conf
-
-powerdns-restart:
-	ssh isu11q-1 "sudo systemctl restart pdns.service"
-
-dnsdist-deploy:
-	ssh isu11q-1 "sudo dd of=/etc/dnsdist/dnsdist.conf" < ./etc/dnsdist/dnsdist.conf
-
-dnsdist-restart:
-	ssh isu11q-1 "sudo systemctl restart dnsdist.service"
+memcached-restart:
+	ssh isu11q-1 "sudo systemctl restart memcached.service"
 
 env-deploy:
 	ssh isu11q-1 "sudo dd of=/home/isucon/env.sh" < ./env.sh
